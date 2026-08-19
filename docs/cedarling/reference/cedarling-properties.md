@@ -28,7 +28,9 @@ These properties are effective regardless of which authorization method is in us
 
 To load the policy store, one of the following properties must be set.
 
-- **`CEDARLING_POLICY_STORE_LOCAL`** : JSON object as string with policy store. You can use [this](https://jsontostring.com/) converter.
+- **`CEDARLING_POLICY_STORE_LOCAL`** : Policy store as a string. Cedarling automatically detects the format as one of the following.
+      - Content starting with `{` or `[` → loads as JSON. You can use [this](https://jsontostring.com/) converter.
+      - Any other content → loads as YAML
 
 - **`CEDARLING_POLICY_STORE_URI`** : URL to fetch policy store from. Cedarling automatically detects the format as one of the following.
       - URL points to an archive → loads as Cedar Archive (`.cjar`)
