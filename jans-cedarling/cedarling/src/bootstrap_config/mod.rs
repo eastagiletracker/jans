@@ -330,4 +330,61 @@ mod tests {
         assert_eq!(config.data_store_config.default_ttl, None);
         assert!(config.data_store_config.enable_metrics);
     }
+
+    fn local_policy_store_source(policy_store: &str) -> PolicyStoreSource {
+        let raw = BootstrapConfigRaw {
+            local_policy_store: Some(policy_store.to_string()),
+            ..Default::default()
+        };
+        BootstrapConfig::from_raw_config(&raw)
+            .expect("bootstrap config should build")
+            .policy_store_config
+            .source
+    }
+
+    #[test]
+    fn test_local_policy_store_json_is_parsed_as_json() {
+        assert!(matches!(
+            local_policy_store_source("  {\"cedar_version\": \"v4.0.0\"}"),
+            PolicyStoreSource::Json(_)
+        ));
+    }
+
+    #[test]
+    fn test_local_policy_store_yaml_is_parsed_as_yaml() {
+        assert!(matches!(
+            local_policy_store_source("cedar_version: v4.0.0\npolicy_stores: {}"),
+            PolicyStoreSource::Yaml(_)
+        ));
+    }
+
+    /// Malformed JSON must keep reaching the JSON parser, so operators still get
+    /// a JSON diagnostic instead of a misleading YAML one.
+    #[test]
+    fn test_malformed_local_policy_store_json_is_still_parsed_as_json() {
+        assert!(matches!(
+            local_policy_store_source("{ broken json"),
+            PolicyStoreSource::Json(_)
+        ));
+    }
+
+    /// Bindings hand the bootstrap over as JSON, so a YAML policy store has to
+    /// survive `BootstrapConfigRaw` deserialization before it reaches the parser.
+    #[test]
+    fn test_yaml_local_policy_store_survives_raw_config_deserialization() {
+        let bootstrap = serde_json::json!({
+            "CEDARLING_APPLICATION_NAME": "test_app",
+            "CEDARLING_POLICY_STORE_LOCAL": "cedar_version: v4.0.0\npolicy_stores: {}",
+        });
+        let raw: BootstrapConfigRaw =
+            serde_json::from_value(bootstrap).expect("bootstrap json should deserialize");
+
+        assert!(matches!(
+            BootstrapConfig::from_raw_config(&raw)
+                .expect("bootstrap config should build")
+                .policy_store_config
+                .source,
+            PolicyStoreSource::Yaml(_)
+        ));
+    }
 }

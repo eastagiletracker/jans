@@ -118,8 +118,8 @@ impl BootstrapConfig {
     }
 }
 
-/// Build [`PolicyStoreConfig`] from the three mutually-exclusive raw source
-/// fields (`CEDARLING_POLICY_STORE_LOCAL`, `_URI`, `_LOCAL_FN`).
+/// Build [`PolicyStoreConfig`] from the mutually-exclusive raw source fields
+/// (`CEDARLING_POLICY_STORE_LOCAL`, `_URI`, `_LOCAL_FN`, `_CJAR_URL`).
 /// Returns an error if none or more than one are set
 fn build_policy_store_config(
     raw: &BootstrapConfigRaw,
@@ -132,9 +132,9 @@ fn build_policy_store_config(
     ) {
         // Case: no policy store provided
         (None, None, None, None) => Err(BootstrapConfigLoadingError::MissingPolicyStore),
-        // Case: get the policy store from a JSON string
+        // Case: get the policy store from an inline JSON or YAML string
         (Some(policy_store), None, None, None) => Ok(PolicyStoreConfig {
-            source: PolicyStoreSource::Json(policy_store),
+            source: inline_policy_store_source(policy_store),
             refresh_interval_secs: raw.policy_store_refresh_interval_secs,
         }),
         // Case: get the policy store from a URI
@@ -175,6 +175,17 @@ fn build_policy_store_config(
         },
         // Case: multiple policy stores were set
         _ => Err(BootstrapConfigLoadingError::ConflictingPolicyStores),
+    }
+}
+
+/// Detects the format of an inline policy store (`CEDARLING_POLICY_STORE_LOCAL`),
+/// which accepts both JSON and YAML. Dispatching on the opening delimiter rather
+/// than on a trial JSON parse keeps malformed JSON reported as a JSON error.
+fn inline_policy_store_source(policy_store: String) -> PolicyStoreSource {
+    if policy_store.trim_start().starts_with(['{', '[']) {
+        PolicyStoreSource::Json(policy_store)
+    } else {
+        PolicyStoreSource::Yaml(policy_store)
     }
 }
 
